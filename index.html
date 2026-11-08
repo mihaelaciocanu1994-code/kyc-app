@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nørregade KYC</title>
+<style>
+:root{
+  --bg:#f6f5f1; --panel:#ffffff; --ink:#1d2329; --muted:#66707a; --line:#dfdcd4;
+  --accent:#1f5f8b; --accent-ink:#ffffff; --soft:#eef3f7;
+  --low:#2e7d4f; --normal:#3a6ea5; --high:#b56a00; --reject:#b3261e; --open:#8a6d00;
+  --input:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15191d; --panel:#1e2328; --ink:#e7e9eb; --muted:#9aa3ab; --line:#333a41;
+    --accent:#5aa3d6; --accent-ink:#0f1418; --soft:#24303a; --input:#171b1f;
+    --low:#5cc28a; --normal:#7fb0e0; --high:#e8a03c; --reject:#f07a72; --open:#d9b94a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15191d; --panel:#1e2328; --ink:#e7e9eb; --muted:#9aa3ab; --line:#333a41;
+  --accent:#5aa3d6; --accent-ink:#0f1418; --soft:#24303a; --input:#171b1f;
+  --low:#5cc28a; --normal:#7fb0e0; --high:#e8a03c; --reject:#f07a72; --open:#d9b94a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+header h1{font-size:17px;margin:0;font-weight:650}
+header .meta{color:var(--muted);font-size:13px}
+.spacer{flex:1}
+button,.btn{background:var(--soft);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.danger{color:var(--reject)}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{background:var(--input);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:5px 7px;font:inherit;width:100%}
+textarea{min-height:60px;resize:vertical}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+.layout{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 56px)}
+aside{border-right:1px solid var(--line);background:var(--panel);padding:10px}
+aside .client{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 8px;border-radius:6px;cursor:pointer;margin-bottom:2px}
+aside .client:hover{background:var(--soft)}
+aside .client.sel{background:var(--soft);outline:1px solid var(--accent)}
+aside .cid{font-weight:600;margin-right:4px}
+aside .cname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+main{padding:16px;min-width:0}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 14px;border-bottom:1px solid var(--line)}
+.tabs button{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:7px 10px;color:var(--muted)}
+.tabs button.on{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.grid .wide{grid-column:1/-1}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}
+.tablewrap{overflow-x:auto}
+.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;font-weight:600;border:1px solid currentColor;white-space:nowrap}
+.b-Low{color:var(--low)} .b-Normal{color:var(--normal)} .b-High{color:var(--high)} .b-Reject{color:var(--reject)} .b-none{color:var(--muted)} .b-open{color:var(--open)}
+.muted{color:var(--muted)} .small{font-size:12px}
+.flag{padding:6px 9px;border-radius:6px;margin:4px 0;background:var(--soft);border-left:3px solid var(--muted)}
+.flag.red{border-left-color:var(--reject)} .flag.amber{border-left-color:var(--high)} .flag.ok{border-left-color:var(--low)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.score{font-variant-numeric:tabular-nums;font-weight:600}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.hitgroup{margin-bottom:14px}
+.hitgroup h4{margin:0 0 6px;font-size:13px}
+.st-open{color:var(--open);font-weight:600} .st-ruled_out{color:var(--low);font-weight:600} .st-confirmed{color:var(--reject);font-weight:600}
+td input,td select{min-width:70px}
+.rule li{margin:3px 0}
+@media (max-width:760px){
+  .layout{grid-template-columns:1fr}
+  aside{border-right:none;border-bottom:1px solid var(--line);max-height:240px;overflow:auto}
+  main{padding:12px 16px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Nørregade Revision · KYC</h1>
+  <span class="meta" id="listStatus">Sanctions list: not loaded</span>
+  <span class="meta" id="qStatus"></span>
+  <span class="spacer"></span>
+  <label class="btn" style="margin:0;color:var(--ink);font-size:14px">Load targets.simple.csv
+    <input type="file" id="csvFile" accept=".csv" style="display:none"></label>
+  <button onclick="exportAll()">Export CSV</button>
+  <button onclick="exportJSON()">Backup</button>
+  <label class="btn" style="margin:0;color:var(--ink);font-size:14px">Restore
+    <input type="file" id="jsonFile" accept=".json" style="display:none"></label>
+  <button onclick="showRule()">Scoring rule</button>
+</header>
+<div class="layout">
+  <aside id="side"></aside>
+  <main id="main"></main>
+</div>
+
+<script>
+/* ================= STATE ================= */
+const STORE_KEY = 'kyc_noerregade_v1';
+const Q_LIMIT = 15;
+let db = load();
+let sel = db.clients[0] ? db.clients[0].id : null;
+let tab = 'identity';
+let showingRule = false;
+let targets = [];        // parsed sanctions list
+let listMeta = '';
+
+function blankDb(){ return {clients:[], questions:[], settings:{threshold:0.85, maxHits:5}}; }
+function load(){
+  try{ const s = localStorage.getItem(STORE_KEY); if(s){ const d = JSON.parse(s); return Object.assign(blankDb(), d); } }catch(e){}
+  return blankDb();
+}
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(db)); }catch(e){ console.warn('save failed', e); } }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function cur(){ return db.clients.find(c=>c.id===sel); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+function newClient(id){
+  return {id, name:'', kind:'company', cvr:'', address:'', country:'DK', industry:'', dob:'', nationality:'',
+    appDate:'', contact:'', docs:'', inconsistencies:'', parties:[], links:[], hits:{},
+    risk:{cash:'none', countries:'dk_eu', sector:'normal', pep:'no', sof:'documented', ubo:'yes', incons:'none'},
+    decision:'', reason:'', evidence:''};
+}
+
+/* ================= SANCTIONS LIST ================= */
+function parseCSV(text){
+  const rows=[]; let row=[], f='', q=false, i=0, n=text.length;
+  while(i<n){
+    const ch=text[i];
+    if(q){
+      if(ch==='"'){ if(text[i+1]==='"'){ f+='"'; i+=2; continue; } q=false; i++; continue; }
+      f+=ch; i++; continue;
+    }
+    if(ch==='"'){ q=true; i++; continue; }
+    if(ch===','){ row.push(f); f=''; i++; continue; }
+    if(ch==='\r'){ i++; continue; }
+    if(ch==='\n'){ row.push(f); rows.push(row); row=[]; f=''; i++; continue; }
+    f+=ch; i++;
+  }
+  if(f!=='' || row.length){ row.push(f); rows.push(row); }
+  return rows;
+}
+function norm(s){
+  return String(s||'').toLowerCase()
+    .replace(/æ/g,'ae').replace(/ø/g,'oe').replace(/å/g,'aa').replace(/ß/g,'ss')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+function tokens(s){ return norm(s).split(' ').filter(t=>t.length>0); }
+function buildTargets(text){
+  const rows=parseCSV(text); const h=rows[0].map(x=>x.trim().toLowerCase());
+  const ix=k=>h.indexOf(k);
+  const iId=ix('id'), iSchema=ix('schema'), iName=ix('name'), iAl=ix('aliases'), iBd=ix('birth_date'),
+        iCo=ix('countries'), iSan=ix('sanctions'), iIdent=ix('identifiers');
+  if(iName<0) throw new Error('No "name" column found — is this targets.simple.csv?');
+  const out=[];
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r]; if(!row || row.length<2) continue;
+    const name=row[iName]||''; if(!name) continue;
+    const aliases=(iAl>=0 && row[iAl]) ? row[iAl].split(';').map(a=>a.trim()).filter(Boolean) : [];
+    const variants=[name, ...aliases].map(v=>{ const t=tokens(v); return {raw:v, toks:t, sorted:[...t].sort().join(' ')}; }).filter(v=>v.toks.length);
+    out.push({id:row[iId]||'', schema:iSchema>=0?row[iSchema]:'', name, aliases,
+      birth:iBd>=0?row[iBd]:'', countries:iCo>=0?row[iCo]:'', sanctions:iSan>=0?row[iSan]:'',
+      identifiers:iIdent>=0?row[iIdent]:'', variants});
+  }
+  return out;
+}
+function jw(a,b){
+  if(a===b) return 1; const la=a.length, lb=b.length; if(!la||!lb) return 0;
+  const md=Math.max(0, Math.floor(Math.max(la,lb)/2)-1);
+  const am=new Array(la).fill(false), bm=new Array(lb).fill(false); let m=0;
+  for(let i=0;i<la;i++){ const s=Math.max(0,i-md), e=Math.min(i+md+1,lb);
+    for(let j=s;j<e;j++){ if(!bm[j] && a[i]===b[j]){ am[i]=bm[j]=true; m++; break; } } }
+  if(!m) return 0; let t=0,k=0;
+  for(let i=0;i<la;i++){ if(am[i]){ while(!bm[k]) k++; if(a[i]!==b[k]) t++; k++; } }
+  const j=(m/la + m/lb + (m-t/2)/m)/3; let p=0;
+  while(p<4 && p<la && p<lb && a[p]===b[p]) p++;
+  return j + p*0.1*(1-j);
+}
+function tokAvg(qt, tt){ let s=0; for(const x of qt){ let best=0; for(const y of tt){ const v=jw(x,y); if(v>best) best=v; if(best===1) break; } s+=best; } return s/qt.length; }
+function similarity(qToks, qSorted, v){
+  const s1=jw(qSorted, v.sorted);
+  const s2=(2*tokAvg(qToks, v.toks) + tokAvg(v.toks, qToks))/3;
+  return Math.max(s1, s2);
+}
+function screenName(name){
+  const qt=tokens(name); if(!qt.length || !targets.length) return [];
+  const qs=[...qt].sort().join(' '); const res=[];
+  for(const t of targets){
+    let best=0, bestName=t.name;
+    for(const v of t.variants){ const s=similarity(qt, qs, v); if(s>best){ best=s; bestName=v.raw; } }
+    if(best>=db.settings.threshold) res.push({t, score:best, matched:bestName});
+  }
+  res.sort((a,b)=>b.score-a.score);
+  return res.slice(0, db.settings.maxHits);
+}
+/* cache raw CSV in IndexedDB so the list survives a reload */
+function idb(){ return new Promise((res,rej)=>{ try{ const r=indexedDB.open('kyc_list',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('f'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);}catch(e){rej(e);} }); }
+async function cacheList(text, meta){ try{ const d=await idb(); const tx=d.transaction('f','readwrite'); tx.objectStore('f').put({text,meta},'list'); }catch(e){} }
+async function loadCachedList(){ try{ const d=await idb(); const tx=d.transaction('f','readonly'); const rq=tx.objectStore('f').get('list');
+  rq.onsuccess=()=>{ if(rq.result){ try{ targets=buildTargets(rq.result.text); listMeta=rq.result.meta; render(); }catch(e){} } }; }catch(e){} }
+
+document.getElementById('csvFile').addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  document.getElementById('listStatus').textContent='Sanctions list: reading…';
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ targets=buildTargets(rd.result);
+      listMeta=f.name+' · loaded '+new Date().toLocaleDateString(); cacheList(rd.result, listMeta); render();
+    }catch(err){ alert(err.message); render(); } };
+  rd.readAsText(f, 'utf-8');
+});
+document.getElementById('jsonFile').addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+  rd.onload=()=>{ try{ const d=JSON.parse(rd.result); if(!confirm('Replace all current data with this backup?')) return;
+    db=Object.assign(blankDb(), d); sel=db.clients[0]?db.clients[0].id:null; save(); render(); }catch(err){ alert('Not a valid backup file.'); } };
+  rd.readAsText(f);
+});
+
+/* ================= OWNERSHIP ================= */
+function partyName(c, key){ if(key==='client') return c.name||c.id; const p=c.parties.find(p=>p.pid===key); return p?(p.name||'(unnamed)'):'?'; }
+/* share of the client held by `key` = sum over links (key owns pct% of X) of pct × share(X) ; share(client)=1 */
+function effShare(c, key, depth=0, seen={}){
+  if(key==='client') return 1; if(depth>10 || seen[key]) return 0;
+  const s2=Object.assign({}, seen, {[key]:true}); let tot=0;
+  for(const l of c.links){ if(l.owner===key){ const p=parseFloat(l.pct)||0; tot+= p/100 * effShare(c, l.of, depth+1, s2); } }
+  return tot;
+}
+function chains(c, key, depth=0, seen={}){
+  if(key==='client') return [[]]; if(depth>10||seen[key]) return [];
+  const s2=Object.assign({}, seen, {[key]:true}); const out=[];
+  for(const l of c.links){ if(l.owner===key){ for(const ch of chains(c, l.of, depth+1, s2)) out.push([{of:l.of,pct:l.pct}, ...ch]); } }
+  return out;
+}
+function layers(c){ let m=0; for(const p of c.parties){ for(const ch of chains(c,p.pid)) m=Math.max(m, ch.length); } return m; }
+const MGMT=['director','ceo','board','management','manager','direktør','bestyrelse','direktion','signatory'];
+function isMgmt(p){ const r=(p.roles||'').toLowerCase(); return MGMT.some(m=>r.includes(m)); }
+
+/* ================= RISK ASSESSMENT ================= */
+const OPTS={
+  cash:[['none','No / negligible cash',0],['some','Some cash',1],['heavy','Cash-heavy',3]],
+  countries:[['dk_eu','Denmark / EU only',0],['non_eu','Non-EU links',1],['high','High-risk / sanctioned country',3]],
+  sector:[['low','Low-risk sector',0],['normal','Normal sector',0],['high','High-risk sector',2]],
+  pep:[['no','No PEP',0],['pep','PEP',3],['family','Family member of PEP',3],['assoc','Close associate of PEP',3]],
+  sof:[['documented','Documented',0],['partly','Partly documented',1],['unclear','Unclear / not documented',3]],
+  ubo:[['yes','Yes, all identified',0],['no','No / not verified',0]],
+  incons:[['none','None',0],['minor','Minor, explained',1],['major','Major / unexplained',3]]
+};
+const FACTOR_LABEL={cash:'Cash',countries:'Countries',sector:'Sector',pep:'PEP',sof:'Source of funds',ubo:'Beneficial owners identified',incons:'Inconsistencies'};
+function pts(f,v){ const o=OPTS[f].find(x=>x[0]===v); return o?o[2]:0; }
+function optLabel(f,v){ const o=OPTS[f].find(x=>x[0]===v); return o?o[1]:v; }
+
+function assess(c){
+  const r=c.risk, items=[], flags=[]; let score=0;
+  for(const f of ['cash','countries','sector','pep','sof','incons']){ const p=pts(f,r[f]); if(p){ items.push([FACTOR_LABEL[f]+': '+optLabel(f,r[f]), p]); score+=p; } }
+  const L=layers(c); if(L>=2){ items.push(['Complex ownership ('+L+' layers)',1]); score+=1; }
+  let level = score<=1 ? 'Low' : score<=3 ? 'Normal' : 'High';
+  let decision = level==='High' ? 'Accept with EDD' : 'Accept';
+  let hard=false;
+  if(r.pep!=='no'){ level='High'; if(decision==='Accept') decision='Accept with EDD'; flags.push(['amber','PEP / family / close associate → enhanced due diligence (not a reason to reject by itself).']); }
+
+  // sanctions
+  let open=0;
+  const keys=['client', ...c.parties.map(p=>p.pid)];
+  for(const k of keys){
+    for(const h of (c.hits[k]||[])){
+      if(h.status==='open') open++;
+      if(h.status!=='confirmed') continue;
+      const nm=partyName(c,k);
+      if(k==='client'){ hard=true; flags.push(['red','Client itself is listed ('+h.listId+') → reject.']); continue; }
+      const p=c.parties.find(p=>p.pid===k), sh=effShare(c,k);
+      if(sh>=0.25){ hard=true; flags.push(['red',nm+' is listed ('+h.listId+') and owns '+fmtPct(sh)+' (≥25%) → reject.']); }
+      if(p && isMgmt(p)){ hard=true; flags.push(['red',nm+' is listed ('+h.listId+') and sits in management → reject.']); }
+      if(sh>0 && sh<0.25 && !(p && isMgmt(p))){ level='High'; if(!hard) decision='Escalate'; flags.push(['amber',nm+' is listed ('+h.listId+') with '+fmtPct(sh)+' (<25%) → escalate to compliance partner.']); }
+      if(sh===0 && !(p && isMgmt(p))){ level='High'; if(!hard) decision='Escalate'; flags.push(['amber',nm+' is listed ('+h.listId+') — no ownership/management recorded; check role and escalate.']); }
+    }
+  }
+  if(open){ flags.push(['amber',open+' screening candidate(s) still open — a possible match is never cleared without evidence.']); }
+
+  if(r.ubo==='no'){ hard=true; flags.push(['red','Beneficial owners not identified → due diligence incomplete, client may not be accepted.']); }
+  const ubos=c.parties.filter(p=>p.kind==='person' && effShare(c,p.pid)>=0.25);
+  if(c.kind==='company' && c.parties.length && !ubos.length && r.ubo==='yes')
+    flags.push(['amber','No natural person with ≥25% is recorded — who controls the company? (record the senior manager as UBO if truly nobody owns 25%).']);
+
+  if(hard){ level='High'; decision='Reject'; }
+  else if(open && decision!=='Escalate'){ decision = decision==='Accept' ? 'Pending (open screening)' : decision; }
+  if(!flags.length) flags.push(['ok','No policy rule triggered.']);
+  return {score, items, level: hard?'Reject':level, decision, flags, open, layers:L};
+}
+function fmtPct(x){ return (Math.round(x*10000)/100).toLocaleString('en-US',{maximumFractionDigits:2})+'%'; }
+const DECISIONS=['Accept','Accept with EDD','Escalate to compliance partner','Reject'];
+
+/* ================= RENDER ================= */
+function render(){
+  const focusId=document.activeElement && document.activeElement.id;
+  document.getElementById('listStatus').textContent = targets.length ? 'Sanctions list: '+targets.length.toLocaleString()+' entries ('+listMeta+')' : 'Sanctions list: not loaded';
+  const qUsed=db.questions.length;
+  document.getElementById('qStatus').innerHTML='Questions used: <b style="color:'+(qUsed>Q_LIMIT?'var(--reject)':'inherit')+'">'+qUsed+' / '+Q_LIMIT+'</b>';
+  renderSide();
+  document.getElementById('main').innerHTML = showingRule ? ruleHTML() : mainHTML();
+  if(focusId){ const el=document.getElementById(focusId); if(el) el.focus(); }
+}
+function renderSide(){
+  let h='<div class="row" style="margin-bottom:8px"><button class="primary" onclick="addClient()">+ Client</button>';
+  if(!db.clients.length) h+='<button onclick="seedTen()">Create K01–K10</button>';
+  h+='</div>';
+  for(const c of db.clients){
+    const a=assess(c);
+    h+='<div class="client '+(c.id===sel&&!showingRule?'sel':'')+'" onclick="pick(\''+c.id+'\')"><div class="cname"><span class="cid">'+esc(c.id)+'</span>'+esc(c.name||'—')+'</div>'+
+       (c.decision?'<span class="badge b-'+(c.decision==='Reject'?'Reject':a.level)+'">'+esc(short(c.decision))+'</span>':'<span class="badge b-none">'+a.level+'</span>')+'</div>';
+  }
+  document.getElementById('side').innerHTML=h;
+}
+function short(d){ return {'Accept':'Accept','Accept with EDD':'EDD','Escalate to compliance partner':'Escalate','Reject':'Reject'}[d]||d; }
+
+function inp(id, label, val, onch, type='text', cls=''){
+  return '<div class="'+cls+'"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="'+type+'" value="'+esc(val)+'" onchange="'+onch+'"></div>';
+}
+function selBox(id, label, val, opts, onch, cls=''){
+  return '<div class="'+cls+'">'+(label?'<label for="'+id+'">'+label+'</label>':'')+'<select id="'+id+'" onchange="'+onch+'">'+
+    opts.map(o=>'<option value="'+esc(o[0])+'"'+(o[0]===val?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></div>';
+}
+function mainHTML(){
+  const c=cur();
+  if(!c) return '<div class="empty">No clients yet. Click <b>Create K01–K10</b> to start, then load <b>targets.simple.csv</b> for screening.</div>';
+  const a=assess(c);
+  let h='<div class="row"><h2 style="margin:0;font-size:18px">'+esc(c.id)+' · '+esc(c.name||'New client')+'</h2>'+
+    '<span class="badge b-'+a.level+'">'+a.level+'</span><span class="spacer"></span>'+
+    '<button class="danger" onclick="delClient()">Delete client</button></div>';
+  const T=[['identity','Identity'],['owners','Owners & management'],['screening','Sanctions screening'],['risk','Risk & decision'],['questions','Questions & notes']];
+  h+='<div class="tabs">'+T.map(t=>'<button class="'+(tab===t[0]?'on':'')+'" onclick="setTab(\''+t[0]+'\')">'+t[1]+'</button>').join('')+'</div>';
+  h+= tab==='identity'?identityHTML(c) : tab==='owners'?ownersHTML(c) : tab==='screening'?screeningHTML(c) : tab==='risk'?riskHTML(c,a) : questionsHTML(c);
+  return h;
+}
+function identityHTML(c){
+  const f=(k)=>"setC('"+k+"',this.value)";
+  return '<div class="card"><h3>Client file</h3><div class="grid">'+
+    inp('f_id','Client ID',c.id,"renameId(this.value)")+
+    inp('f_name','Name (company or person)',c.name,f('name')+';render()')+
+    selBox('f_kind','Client type',c.kind,[['company','Company'],['person','Natural person / sole trader']],f('kind')+';render()')+
+    inp('f_cvr','CVR number',c.cvr,f('cvr'))+
+    inp('f_address','Address',c.address,f('address'),'text','wide')+
+    inp('f_country','Country',c.country,f('country'))+
+    inp('f_industry','Industry / branche',c.industry,f('industry'))+
+    inp('f_dob','Date of birth (persons)',c.dob,f('dob'))+
+    inp('f_nat','Nationality (persons)',c.nationality,f('nationality'))+
+    inp('f_app','Application date',c.appDate,f('appDate'),'date')+
+    inp('f_contact','Contact person',c.contact,f('contact'))+
+    '<div class="wide"><label for="f_docs">Documents in folder (what you received)</label><textarea id="f_docs" onchange="'+f('docs')+'">'+esc(c.docs)+'</textarea></div>'+
+    '<div class="wide"><label for="f_inc">Inconsistencies between documents</label><textarea id="f_inc" onchange="'+f('inconsistencies')+'">'+esc(c.inconsistencies)+'</textarea></div>'+
+  '</div></div>';
+}
+function ownersHTML(c){
+  let h='<div class="card"><h3>Persons and companies in the folder</h3><p class="small muted">Add every name you find — application form, register extract, bank statement. Roles: e.g. owner, director, board, CEO, signatory, contact. Management roles are used by the sanctions rule.</p><div class="tablewrap"><table><tr><th>Name</th><th>Type</th><th>Date of birth</th><th>Nationality</th><th>Country</th><th>Reg. no / CVR</th><th>Roles</th><th>Effective share</th><th></th></tr>';
+  for(const p of c.parties){
+    const f=(k)=>"setP('"+p.pid+"','"+k+"',this.value)";
+    const sh=effShare(c,p.pid);
+    h+='<tr><td><input id="p_n_'+p.pid+'" value="'+esc(p.name)+'" onchange="'+f('name')+';render()"></td>'+
+      '<td>'+selBox('p_k_'+p.pid,'',p.kind,[['person','Person'],['company','Company']],f('kind')+';render()')+'</td>'+
+      '<td><input id="p_d_'+p.pid+'" value="'+esc(p.dob)+'" placeholder="YYYY-MM-DD" onchange="'+f('dob')+'"></td>'+
+      '<td><input id="p_na_'+p.pid+'" value="'+esc(p.nationality)+'" onchange="'+f('nationality')+'"></td>'+
+      '<td><input id="p_c_'+p.pid+'" value="'+esc(p.country)+'" onchange="'+f('country')+'"></td>'+
+      '<td><input id="p_r_'+p.pid+'" value="'+esc(p.reg)+'" onchange="'+f('reg')+'"></td>'+
+      '<td><input id="p_ro_'+p.pid+'" value="'+esc(p.roles)+'" onchange="'+f('roles')+';render()"></td>'+
+      '<td class="score">'+(sh?fmtPct(sh):'—')+(p.kind==='person'&&sh>=0.25?' <span class="badge b-Normal">UBO</span>':'')+'</td>'+
+      '<td><button class="danger" onclick="delParty(\''+p.pid+'\')">✕</button></td></tr>';
+  }
+  h+='</table></div><div class="row" style="margin-top:8px"><button onclick="addParty(\'person\')">+ Person</button><button onclick="addParty(\'company\')">+ Company</button></div></div>';
+
+  const ofOpts=[['client',(c.name||c.id)+' (client)'], ...c.parties.filter(p=>p.kind==='company').map(p=>[p.pid,p.name||'(unnamed company)'])];
+  const ownerOpts=[['','— choose —'], ...c.parties.map(p=>[p.pid,p.name||'(unnamed)'])];
+  h+='<div class="card"><h3>Ownership links</h3><p class="small muted">One row per holding: "<i>owner</i> owns <i>x%</i> of <i>company</i>". Indirect shares are multiplied down the chain and summed over all paths.</p><div class="tablewrap"><table><tr><th>Owner</th><th>Owns %</th><th>Of</th><th></th></tr>';
+  c.links.forEach((l,i)=>{
+    h+='<tr><td>'+selBox('l_o_'+i,'',l.owner,ownerOpts,"setL("+i+",'owner',this.value)")+'</td>'+
+      '<td><input id="l_p_'+i+'" type="number" min="0" max="100" step="0.01" value="'+esc(l.pct)+'" onchange="setL('+i+',\'pct\',this.value)"></td>'+
+      '<td>'+selBox('l_f_'+i,'',l.of,ofOpts,"setL("+i+",'of',this.value)")+'</td>'+
+      '<td><button class="danger" onclick="delLink('+i+')">✕</button></td></tr>';
+  });
+  h+='</table></div><div class="row" style="margin-top:8px"><button onclick="addLink()">+ Ownership link</button></div></div>';
+
+  // chain view
+  h+='<div class="card"><h3>Effective ownership of '+esc(c.name||c.id)+'</h3>';
+  const owners=c.parties.filter(p=>effShare(c,p.pid)>0).sort((a,b)=>effShare(c,b.pid)-effShare(c,a.pid));
+  if(!owners.length) h+='<p class="muted">No ownership recorded yet.</p>';
+  else{
+    h+='<table><tr><th>Owner</th><th>Chain</th><th>Effective</th></tr>';
+    for(const p of owners){
+      const ch=chains(c,p.pid).map(path=>esc(p.name)+' → '+path.map(s=>s.pct+'% of '+esc(partyName(c,s.of))).join(' → ')+' = '+fmtPct(path.reduce((m,s)=>m*(parseFloat(s.pct)||0)/100,1)));
+      h+='<tr><td>'+esc(p.name)+'</td><td class="small">'+ch.join('<br>')+'</td><td class="score">'+fmtPct(effShare(c,p.pid))+'</td></tr>';
+    }
+    h+='</table>';
+    let tot=0; for(const l of c.links) if(l.of==='client') tot+=parseFloat(l.pct)||0;
+    if(Math.abs(tot-100)>0.01) h+='<div class="flag amber">Direct shares of the client add up to '+tot+'%, not 100%. Is an owner missing?</div>';
+  }
+  return h+'</div>';
+}
+function screeningHTML(c){
+  let h='<div class="card"><h3>Settings</h3><div class="row">'+
+    '<div style="width:160px"><label for="s_th">Similarity threshold</label><input id="s_th" type="number" min="0.5" max="1" step="0.01" value="'+db.settings.threshold+'" onchange="db.settings.threshold=parseFloat(this.value)||0.85;save()"></div>'+
+    '<div style="width:160px"><label for="s_mx">Max candidates per name</label><input id="s_mx" type="number" min="1" max="20" value="'+db.settings.maxHits+'" onchange="db.settings.maxHits=parseInt(this.value)||5;save()"></div>'+
+    '<div style="align-self:flex-end"><button class="primary" onclick="screenAll()" '+(targets.length?'':'disabled')+'>Screen all names</button></div></div>'+
+    (targets.length?'':'<p class="flag amber">Load targets.simple.csv (top bar) first.</p>')+
+    '<p class="small muted">Score 0–1: Jaro–Winkler on sorted name tokens and on token-by-token match, best of the listed name and all aliases. Æ/Ø/Å and accents are normalised. Re-screening keeps your status and notes for candidates already reviewed.</p></div>';
+  const keys=[['client',c.name||c.id,{dob:c.dob,nationality:c.nationality,country:c.country}], ...c.parties.map(p=>[p.pid,p.name,p])];
+  for(const [k,nm,info] of keys){
+    const hits=c.hits[k];
+    h+='<div class="card hitgroup"><h4>'+esc(nm||'(unnamed)')+' <span class="muted small">'+(k==='client'?'client':esc(info.roles||''))+
+      (info.dob?' · born '+esc(info.dob):'')+(info.nationality?' · '+esc(info.nationality):'')+'</span> '+
+      '<button style="float:right" onclick="screenOne(\''+k+'\')" '+(targets.length?'':'disabled')+'>Screen</button></h4>';
+    if(!hits) h+='<p class="muted small">Not screened yet.</p>';
+    else if(!hits.length) h+='<p class="small" style="color:var(--low)">No candidates at threshold '+(c.screenedAt&&c.screenedAt[k]?c.screenedAt[k].th:db.settings.threshold)+(c.screenedAt&&c.screenedAt[k]?' · screened '+esc(c.screenedAt[k].at):'')+'.</p>';
+    else{
+      h+='<div class="tablewrap"><table><tr><th>Score</th><th>Listed name</th><th>List id</th><th>Birth date</th><th>Countries</th><th>Status</th><th>Note / evidence</th></tr>';
+      hits.forEach((x,i)=>{
+        const dobFlag = info.dob && x.birth ? (String(x.birth).includes(String(info.dob).slice(0,4)) ? '' : ' <span class="small" style="color:var(--low)">≠ client '+esc(info.dob)+'</span>') : '';
+        h+='<tr><td class="score">'+x.score.toFixed(3)+'</td><td>'+esc(x.listName)+(x.matched!==x.listName?'<div class="small muted">alias: '+esc(x.matched)+'</div>':'')+'<div class="small muted">'+esc(x.schema)+'</div></td>'+
+          '<td class="small">'+esc(x.listId)+'</td><td class="small">'+esc(x.birth||'—')+dobFlag+'</td><td class="small">'+esc(x.countries||'—')+'</td>'+
+          '<td>'+selBox('h_s_'+k+'_'+i,'',x.status,[['open','Open'],['ruled_out','Ruled out'],['confirmed','Confirmed']],"setH('"+k+"',"+i+",'status',this.value)")+'<div class="small st-'+x.status+'">'+x.status.replace('_',' ')+'</div></td>'+
+          '<td><textarea id="h_n_'+k+'_'+i+'" placeholder="e.g. Passport: born 1996 ≠ listed 1960" onchange="setH(\''+k+'\','+i+',\'note\',this.value,true)">'+esc(x.note)+'</textarea></td></tr>';
+      });
+      h+='</table></div>';
+    }
+    h+='</div>';
+  }
+  return h;
+}
+function riskHTML(c,a){
+  let h='<div class="card"><h3>Risk factors</h3><div class="grid">';
+  for(const f of Object.keys(OPTS)) h+=selBox('r_'+f, FACTOR_LABEL[f], c.risk[f], OPTS[f].map(o=>[o[0],o[1]+(o[2]?' (+'+o[2]+')':'')]), "setR('"+f+"',this.value)");
+  h+='</div><p class="small muted">Complex ownership (2 or more company layers) is added automatically from the ownership links: currently '+a.layers+' layer(s).</p></div>';
+  h+='<div class="card"><h3>Scoring result</h3><table><tr><th>Factor</th><th>Points</th></tr>'+
+    (a.items.length?a.items.map(i=>'<tr><td>'+esc(i[0])+'</td><td class="score">+'+i[1]+'</td></tr>').join(''):'<tr><td class="muted">No risk points</td><td>0</td></tr>')+
+    '<tr><td><b>Total</b></td><td class="score">'+a.score+'</td></tr></table>'+
+    '<p>Risk level: <span class="badge b-'+a.level+'">'+a.level+'</span> · Suggested decision: <b>'+esc(a.decision)+'</b></p>'+
+    a.flags.map(f=>'<div class="flag '+f[0]+'">'+esc(f[1])+'</div>').join('')+'</div>';
+  h+='<div class="card"><h3>Decision</h3><div class="grid">'+
+    selBox('d_dec','Decision',c.decision,[['','— not decided —'],...DECISIONS.map(d=>[d,d])],"setC('decision',this.value);render()")+
+    '<div class="wide"><label for="d_reason">Reason (one or two sentences)</label><textarea id="d_reason" onchange="setC(\'reason\',this.value)">'+esc(c.reason)+'</textarea></div>'+
+    '<div class="wide"><label for="d_ev">Evidence (e.g. "Passport: born 1996 ≠ listed 1960, ruled out")</label><textarea id="d_ev" onchange="setC(\'evidence\',this.value)">'+esc(c.evidence)+'</textarea></div></div>';
+  if(c.decision==='Accept' && (a.level==='High'||a.level==='Reject')) h+='<div class="flag red">You chose Accept, but the rule says '+a.level+'. Write in the reason why you override it.</div>';
+  if(c.decision && c.decision.startsWith('Accept') && a.open) h+='<div class="flag red">Accepting with open screening candidates — clear them with evidence first.</div>';
+  return h+'</div>';
+}
+function questionsHTML(c){
+  const mine=db.questions.map((q,i)=>[q,i]).filter(x=>x[0].client===c.id);
+  let h='<div class="card"><h3>Client Contact Desk log — '+db.questions.length+' of '+Q_LIMIT+' questions used (all clients)</h3>';
+  if(db.questions.length>=Q_LIMIT) h+='<div class="flag red">All 15 questions are used.</div>';
+  h+='<div class="tablewrap"><table><tr><th>#</th><th>Date</th><th>Question / document requested</th><th>Why I asked</th><th>Answer</th><th>What it changed</th><th></th></tr>';
+  for(const [q,i] of mine){
+    const f=(k)=>"setQ("+i+",'"+k+"',this.value)";
+    h+='<tr><td>'+(i+1)+'</td><td><input id="q_d_'+i+'" type="date" value="'+esc(q.date)+'" onchange="'+f('date')+'"></td>'+
+      ['question','why','answer','changed'].map(k=>'<td><textarea id="q_'+k+'_'+i+'" onchange="'+f(k)+'">'+esc(q[k])+'</textarea></td>').join('')+
+      '<td><button class="danger" onclick="delQ('+i+')">✕</button></td></tr>';
+  }
+  h+='</table></div><div class="row" style="margin-top:8px"><button class="primary" onclick="addQ()">+ Log question</button></div></div>';
+  h+='<div class="card"><h3>All questions</h3><table><tr><th>#</th><th>Client</th><th>Question</th></tr>'+
+    db.questions.map((q,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(q.client)+'</td><td>'+esc(q.question)+'</td></tr>').join('')+'</table></div>';
+  return h;
+}
+function ruleHTML(){
+  return '<div class="card rule"><h3>My scoring rule (plain words)</h3>'+
+  '<p>Every client starts at 0 points. I add points for each risk factor:</p><ul>'+
+  '<li><b>Cash:</b> some cash +1, cash-heavy business +3.</li>'+
+  '<li><b>Countries:</b> links outside the EU +1, a high-risk or sanctioned country +3.</li>'+
+  '<li><b>Sector:</b> a high-risk sector (e.g. cash trade, crypto, real estate, gambling, car trade) +2.</li>'+
+  '<li><b>PEP:</b> the client, an owner or a director is a PEP, a family member or a close associate +3.</li>'+
+  '<li><b>Source of funds:</b> only partly documented +1, unclear or not documented +3.</li>'+
+  '<li><b>Inconsistencies</b> between documents or answers: minor and explained +1, major or unexplained +3.</li>'+
+  '<li><b>Complex ownership:</b> two or more company layers between the client and the people behind it +1.</li></ul>'+
+  '<p><b>0–1 points = Low</b> (accept), <b>2–3 points = Normal</b> (accept), <b>4 or more = High</b> (accept with enhanced due diligence, or escalate).</p>'+
+  '<p>The points never override the firm policy. These rules come first:</p><ul>'+
+  '<li>A confirmed sanctions match on the client, on anyone owning 25% or more (direct or indirect), or on anyone in management → <b>Reject</b>.</li>'+
+  '<li>A confirmed listed owner below 25% → <b>High</b>, escalate to the compliance partner.</li>'+
+  '<li>Beneficial owners not identified → due diligence is not complete → <b>not accepted</b>.</li>'+
+  '<li>Any PEP link → at least <b>High</b> with enhanced due diligence, never a rejection on its own.</li>'+
+  '<li>A screening candidate still <b>open</b> blocks acceptance. A candidate is only ruled out or confirmed with evidence (birth date, nationality, ID) — never on the name alone.</li></ul>'+
+  '<p class="muted small">Indirect ownership = shares multiplied down each chain, summed over all chains.</p>'+
+  '<button onclick="showingRule=false;render()">Back</button></div>';
+}
+
+/* ================= ACTIONS ================= */
+function pick(id){ sel=id; showingRule=false; render(); }
+function setTab(t){ tab=t; render(); }
+function showRule(){ showingRule=true; render(); }
+function addClient(){ let n=db.clients.length+1, id; do{ id='K'+String(n).padStart(2,'0'); n++; }while(db.clients.some(c=>c.id===id));
+  db.clients.push(newClient(id)); sel=id; tab='identity'; showingRule=false; save(); render(); }
+function seedTen(){ for(let i=1;i<=10;i++){ const id='K'+String(i).padStart(2,'0'); if(!db.clients.some(c=>c.id===id)) db.clients.push(newClient(id)); }
+  sel='K01'; save(); render(); }
+function delClient(){ const c=cur(); if(!confirm('Delete '+c.id+' and all its data?')) return;
+  db.clients=db.clients.filter(x=>x.id!==c.id); db.questions=db.questions.filter(q=>q.client!==c.id);
+  sel=db.clients[0]?db.clients[0].id:null; save(); render(); }
+function renameId(v){ const c=cur(); v=v.trim(); if(!v||db.clients.some(x=>x.id===v&&x!==c)){ alert('ID must be unique.'); render(); return; }
+  db.questions.forEach(q=>{ if(q.client===c.id) q.client=v; }); c.id=v; sel=v; save(); render(); }
+function setC(k,v){ cur()[k]=v; save(); }
+function setR(k,v){ cur().risk[k]=v; save(); render(); }
+function addParty(kind){ cur().parties.push({pid:uid(), name:'', kind, dob:'', nationality:'', country:'', reg:'', roles:''}); save(); render(); }
+function setP(pid,k,v){ const p=cur().parties.find(p=>p.pid===pid); p[k]=v; save(); }
+function delParty(pid){ const c=cur(); c.parties=c.parties.filter(p=>p.pid!==pid); c.links=c.links.filter(l=>l.owner!==pid&&l.of!==pid); delete c.hits[pid]; save(); render(); }
+function addLink(){ cur().links.push({owner:'', pct:'', of:'client'}); save(); render(); }
+function setL(i,k,v){ cur().links[i][k]=v; save(); render(); }
+function delLink(i){ cur().links.splice(i,1); save(); render(); }
+function setH(k,i,f,v,quiet){ cur().hits[k][i][f]=v; save(); if(!quiet) render(); }
+function addQ(){ if(db.questions.length>=Q_LIMIT && !confirm('You have used all 15 questions. Log another anyway?')) return;
+  db.questions.push({client:cur().id, date:new Date().toISOString().slice(0,10), question:'', why:'', answer:'', changed:''}); save(); render(); }
+function setQ(i,k,v){ db.questions[i][k]=v; save(); }
+function delQ(i){ if(!confirm('Delete this question?')) return; db.questions.splice(i,1); save(); render(); }
+
+function screenKey(c,k){
+  const nm = k==='client' ? c.name : (c.parties.find(p=>p.pid===k)||{}).name;
+  if(!nm) return;
+  const old=c.hits[k]||[]; const res=screenName(nm);
+  c.hits[k]=res.map(r=>{ const prev=old.find(o=>o.listId===r.t.id);
+    return {listId:r.t.id, listName:r.t.name, matched:r.matched, schema:r.t.schema, birth:r.t.birth, countries:r.t.countries,
+      score:r.score, status:prev?prev.status:'open', note:prev?prev.note:''}; });
+  // keep reviewed candidates that fell below a raised threshold
+  for(const o of old) if(o.status!=='open' && !c.hits[k].some(h=>h.listId===o.listId)) c.hits[k].push(o);
+  c.screenedAt=c.screenedAt||{}; c.screenedAt[k]={at:new Date().toLocaleString(), th:db.settings.threshold, name:nm};
+}
+function screenOne(k){ screenKey(cur(),k); save(); render(); }
+function screenAll(){ const c=cur(); const b=event&&event.target; if(b){ b.disabled=true; b.textContent='Screening…'; }
+  setTimeout(()=>{ screenKey(c,'client'); c.parties.forEach(p=>screenKey(c,p.pid)); save(); render(); }, 20); }
+
+/* ================= EXPORT ================= */
+function csvCell(v){ v=String(v==null?'':v); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function toCSV(rows){ return '\ufeff'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n'); }
+function download(name, text, type){ const b=new Blob([text],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500); }
+function exportAll(){
+  const cl=[['client_id','name','type','cvr','address','country','industry','date_of_birth','nationality','application_date','contact',
+    'cash','countries','sector','pep','source_of_funds','ubo_identified','inconsistencies','ownership_layers','score','rule_risk_level','rule_suggestion',
+    'open_candidates','decision','reason','evidence','documents','inconsistency_notes','questions_used']];
+  const pa=[['client_id','name','type','date_of_birth','nationality','country','reg_no','roles','effective_share_pct','chains']];
+  const sc=[['client_id','screened_name','role','score','list_id','listed_name','matched_alias','schema','listed_birth_date','listed_countries','status','note']];
+  const qu=[['no','client_id','date','question','why','answer','what_it_changed']];
+  for(const c of db.clients){
+    const a=assess(c), r=c.risk;
+    cl.push([c.id,c.name,c.kind,c.cvr,c.address,c.country,c.industry,c.dob,c.nationality,c.appDate,c.contact,
+      optLabel('cash',r.cash),optLabel('countries',r.countries),optLabel('sector',r.sector),optLabel('pep',r.pep),optLabel('sof',r.sof),optLabel('ubo',r.ubo),optLabel('incons',r.incons),
+      a.layers,a.score,a.level,a.decision,a.open,c.decision,c.reason,c.evidence,c.docs,c.inconsistencies,db.questions.filter(q=>q.client===c.id).length]);
+    for(const p of c.parties){
+      const ch=chains(c,p.pid).map(path=>path.map(s=>s.pct+'% of '+partyName(c,s.of)).join(' > ')).join(' | ');
+      pa.push([c.id,p.name,p.kind,p.dob,p.nationality,p.country,p.reg,p.roles,(effShare(c,p.pid)*100).toFixed(2),ch]);
+    }
+    for(const k of ['client',...c.parties.map(p=>p.pid)]){
+      const nm=partyName(c,k), role=k==='client'?'client':(c.parties.find(p=>p.pid===k)||{}).roles;
+      const hs=c.hits[k];
+      if(!hs){ sc.push([c.id,nm,role,'','','','','','','','not screened','']); continue; }
+      if(!hs.length) sc.push([c.id,nm,role,'','','','','','','','no candidates','threshold '+(c.screenedAt&&c.screenedAt[k]?c.screenedAt[k].th:'')]);
+      for(const h of hs) sc.push([c.id,nm,role,h.score.toFixed(3),h.listId,h.listName,h.matched,h.schema,h.birth,h.countries,h.status,h.note]);
+    }
+  }
+  db.questions.forEach((q,i)=>qu.push([i+1,q.client,q.date,q.question,q.why,q.answer,q.changed]));
+  download('kyc_clients.csv',toCSV(cl),'text/csv');
+  setTimeout(()=>download('kyc_owners_management.csv',toCSV(pa),'text/csv'),300);
+  setTimeout(()=>download('kyc_screening.csv',toCSV(sc),'text/csv'),600);
+  setTimeout(()=>download('kyc_questions.csv',toCSV(qu),'text/csv'),900);
+}
+function exportJSON(){ download('kyc_backup_'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify(db,null,2), 'application/json'); }
+
+render();
+loadCachedList();
+</script>
+</body>
+</html>
