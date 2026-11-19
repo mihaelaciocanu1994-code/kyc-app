@@ -93,7 +93,6 @@ td input,td select{min-width:70px}
   <aside id="side"></aside>
   <main id="main"></main>
 </div>
-
 <script>
 /* ================= STATE ================= */
 const STORE_KEY = 'kyc_noerregade_v1';
@@ -102,7 +101,7 @@ let db = load();
 let sel = db.clients[0] ? db.clients[0].id : null;
 let tab = 'identity';
 let showingRule = false;
-let targets = [];        // parsed sanctions list
+let targets = []; // parsed sanctions list
 let listMeta = '';
 
 function blankDb(){ return {clients:[], questions:[], settings:{threshold:0.85, maxHits:5}}; }
@@ -147,6 +146,7 @@ function norm(s){
     .replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
 }
 function tokens(s){ return norm(s).split(' ').filter(t=>t.length>0); }
+
 function buildTargets(text){
   const rows=parseCSV(text); const h=rows[0].map(x=>x.trim().toLowerCase());
   const ix=k=>h.indexOf(k);
@@ -165,6 +165,7 @@ function buildTargets(text){
   }
   return out;
 }
+
 function jw(a,b){
   if(a===b) return 1; const la=a.length, lb=b.length; if(!la||!lb) return 0;
   const md=Math.max(0, Math.floor(Math.max(la,lb)/2)-1);
@@ -194,6 +195,7 @@ function screenName(name){
   res.sort((a,b)=>b.score-a.score);
   return res.slice(0, db.settings.maxHits);
 }
+
 /* cache raw CSV in IndexedDB so the list survives a reload */
 function idb(){ return new Promise((res,rej)=>{ try{ const r=indexedDB.open('kyc_list',1);
   r.onupgradeneeded=()=>r.result.createObjectStore('f'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);}catch(e){rej(e);} }); }
@@ -233,7 +235,7 @@ function chains(c, key, depth=0, seen={}){
   return out;
 }
 function layers(c){ let m=0; for(const p of c.parties){ for(const ch of chains(c,p.pid)) m=Math.max(m, ch.length); } return m; }
-const MGMT=['director','ceo','board','management','manager','direktør','bestyrelse','direktion','signatory'];
+const MGMT=['director','ceo','board','management','manager','direktør','bestyrelse','direktion','signatory','chair','formand'];
 function isMgmt(p){ const r=(p.roles||'').toLowerCase(); return MGMT.some(m=>r.includes(m)); }
 
 /* ================= RISK ASSESSMENT ================= */
@@ -255,10 +257,10 @@ function assess(c){
   for(const f of ['cash','countries','sector','pep','sof','incons']){ const p=pts(f,r[f]); if(p){ items.push([FACTOR_LABEL[f]+': '+optLabel(f,r[f]), p]); score+=p; } }
   const L=layers(c); if(L>=2){ items.push(['Complex ownership ('+L+' layers)',1]); score+=1; }
   let level = score<=1 ? 'Low' : score<=3 ? 'Normal' : 'High';
+  if(items.some(i=>i[1]>=3)) level='High';
   let decision = level==='High' ? 'Accept with EDD' : 'Accept';
   let hard=false;
   if(r.pep!=='no'){ level='High'; if(decision==='Accept') decision='Accept with EDD'; flags.push(['amber','PEP / family / close associate → enhanced due diligence (not a reason to reject by itself).']); }
-
   // sanctions
   let open=0;
   const keys=['client', ...c.parties.map(p=>p.pid)];
@@ -276,14 +278,12 @@ function assess(c){
     }
   }
   if(open){ flags.push(['amber',open+' screening candidate(s) still open — a possible match is never cleared without evidence.']); }
-
   if(r.ubo==='no'){ hard=true; flags.push(['red','Beneficial owners not identified → due diligence incomplete, client may not be accepted.']); }
   const ubos=c.parties.filter(p=>p.kind==='person' && effShare(c,p.pid)>=0.25);
   if(c.kind==='company' && c.parties.length && !ubos.length && r.ubo==='yes')
     flags.push(['amber','No natural person with ≥25% is recorded — who controls the company? (record the senior manager as UBO if truly nobody owns 25%).']);
-
   if(hard){ level='High'; decision='Reject'; }
-  else if(open && decision!=='Escalate'){ decision = decision==='Accept' ? 'Pending (open screening)' : decision; }
+  else if(open && decision.startsWith('Accept')){ decision = 'Pending (open screening)'; }
   if(!flags.length) flags.push(['ok','No policy rule triggered.']);
   return {score, items, level: hard?'Reject':level, decision, flags, open, layers:L};
 }
@@ -320,6 +320,7 @@ function selBox(id, label, val, opts, onch, cls=''){
   return '<div class="'+cls+'">'+(label?'<label for="'+id+'">'+label+'</label>':'')+'<select id="'+id+'" onchange="'+onch+'">'+
     opts.map(o=>'<option value="'+esc(o[0])+'"'+(o[0]===val?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></div>';
 }
+
 function mainHTML(){
   const c=cur();
   if(!c) return '<div class="empty">No clients yet. Click <b>Create K01–K10</b> to start, then load <b>targets.simple.csv</b> for screening.</div>';
@@ -332,6 +333,7 @@ function mainHTML(){
   h+= tab==='identity'?identityHTML(c) : tab==='owners'?ownersHTML(c) : tab==='screening'?screeningHTML(c) : tab==='risk'?riskHTML(c,a) : questionsHTML(c);
   return h;
 }
+
 function identityHTML(c){
   const f=(k)=>"setC('"+k+"',this.value)";
   return '<div class="card"><h3>Client file</h3><div class="grid">'+
@@ -348,8 +350,9 @@ function identityHTML(c){
     inp('f_contact','Contact person',c.contact,f('contact'))+
     '<div class="wide"><label for="f_docs">Documents in folder (what you received)</label><textarea id="f_docs" onchange="'+f('docs')+'">'+esc(c.docs)+'</textarea></div>'+
     '<div class="wide"><label for="f_inc">Inconsistencies between documents</label><textarea id="f_inc" onchange="'+f('inconsistencies')+'">'+esc(c.inconsistencies)+'</textarea></div>'+
-  '</div></div>';
+    '</div></div>';
 }
+
 function ownersHTML(c){
   let h='<div class="card"><h3>Persons and companies in the folder</h3><p class="small muted">Add every name you find — application form, register extract, bank statement. Roles: e.g. owner, director, board, CEO, signatory, contact. Management roles are used by the sanctions rule.</p><div class="tablewrap"><table><tr><th>Name</th><th>Type</th><th>Date of birth</th><th>Nationality</th><th>Country</th><th>Reg. no / CVR</th><th>Roles</th><th>Effective share</th><th></th></tr>';
   for(const p of c.parties){
@@ -394,6 +397,7 @@ function ownersHTML(c){
   }
   return h+'</div>';
 }
+
 function screeningHTML(c){
   let h='<div class="card"><h3>Settings</h3><div class="row">'+
     '<div style="width:160px"><label for="s_th">Similarity threshold</label><input id="s_th" type="number" min="0.5" max="1" step="0.01" value="'+db.settings.threshold+'" onchange="db.settings.threshold=parseFloat(this.value)||0.85;save()"></div>'+
@@ -405,8 +409,8 @@ function screeningHTML(c){
   for(const [k,nm,info] of keys){
     const hits=c.hits[k];
     h+='<div class="card hitgroup"><h4>'+esc(nm||'(unnamed)')+' <span class="muted small">'+(k==='client'?'client':esc(info.roles||''))+
-      (info.dob?' · born '+esc(info.dob):'')+(info.nationality?' · '+esc(info.nationality):'')+'</span> '+
-      '<button style="float:right" onclick="screenOne(\''+k+'\')" '+(targets.length?'':'disabled')+'>Screen</button></h4>';
+       (info.dob?' · born '+esc(info.dob):'')+(info.nationality?' · '+esc(info.nationality):'')+'</span> '+
+       '<button style="float:right" onclick="screenOne(\''+k+'\')" '+(targets.length?'':'disabled')+'>Screen</button></h4>';
     if(!hits) h+='<p class="muted small">Not screened yet.</p>';
     else if(!hits.length) h+='<p class="small" style="color:var(--low)">No candidates at threshold '+(c.screenedAt&&c.screenedAt[k]?c.screenedAt[k].th:db.settings.threshold)+(c.screenedAt&&c.screenedAt[k]?' · screened '+esc(c.screenedAt[k].at):'')+'.</p>';
     else{
@@ -424,6 +428,7 @@ function screeningHTML(c){
   }
   return h;
 }
+
 function riskHTML(c,a){
   let h='<div class="card"><h3>Risk factors</h3><div class="grid">';
   for(const f of Object.keys(OPTS)) h+=selBox('r_'+f, FACTOR_LABEL[f], c.risk[f], OPTS[f].map(o=>[o[0],o[1]+(o[2]?' (+'+o[2]+')':'')]), "setR('"+f+"',this.value)");
@@ -441,6 +446,7 @@ function riskHTML(c,a){
   if(c.decision && c.decision.startsWith('Accept') && a.open) h+='<div class="flag red">Accepting with open screening candidates — clear them with evidence first.</div>';
   return h+'</div>';
 }
+
 function questionsHTML(c){
   const mine=db.questions.map((q,i)=>[q,i]).filter(x=>x[0].client===c.id);
   let h='<div class="card"><h3>Client Contact Desk log — '+db.questions.length+' of '+Q_LIMIT+' questions used (all clients)</h3>';
@@ -457,6 +463,7 @@ function questionsHTML(c){
     db.questions.map((q,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(q.client)+'</td><td>'+esc(q.question)+'</td></tr>').join('')+'</table></div>';
   return h;
 }
+
 function ruleHTML(){
   return '<div class="card rule"><h3>My scoring rule (plain words)</h3>'+
   '<p>Every client starts at 0 points. I add points for each risk factor:</p><ul>'+
@@ -467,7 +474,7 @@ function ruleHTML(){
   '<li><b>Source of funds:</b> only partly documented +1, unclear or not documented +3.</li>'+
   '<li><b>Inconsistencies</b> between documents or answers: minor and explained +1, major or unexplained +3.</li>'+
   '<li><b>Complex ownership:</b> two or more company layers between the client and the people behind it +1.</li></ul>'+
-  '<p><b>0–1 points = Low</b> (accept), <b>2–3 points = Normal</b> (accept), <b>4 or more = High</b> (accept with enhanced due diligence, or escalate).</p>'+
+  '<p><b>0–1 points = Low</b> (accept), <b>2–3 points = Normal</b> (accept), <b>4 or more = High</b> (accept with enhanced due diligence, or escalate). <b>Any single factor at its highest level (+3) makes the client at least High.</b></p>'+
   '<p>The points never override the firm policy. These rules come first:</p><ul>'+
   '<li>A confirmed sanctions match on the client, on anyone owning 25% or more (direct or indirect), or on anyone in management → <b>Reject</b>.</li>'+
   '<li>A confirmed listed owner below 25% → <b>High</b>, escalate to the compliance partner.</li>'+
